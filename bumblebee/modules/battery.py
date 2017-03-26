@@ -29,7 +29,7 @@ class Module(bumblebee.engine.Module):
             return "ac"
         if self._capacity == -1:
             return "n/a"
-        return "{:03d}%".format(self._capacity)
+        return "{:d}%".format(self._capacity)
 
     def update(self, widgets):
         widget = widgets[0]
