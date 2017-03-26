@@ -17,44 +17,46 @@ import bumblebee.engine
 class Module(bumblebee.engine.Module):
     def __init__(self, engine, config):
         super(Module, self).__init__(engine, config,
-            bumblebee.output.Widget(full_text=self.capacity)
+            bumblebee.output.Widget(full_text=self.charge)
         )
         battery = self.parameter("device", "BAT0")
         self._path = "/sys/class/power_supply/{}".format(battery)
-        self._capacity = 100
+        self._charge = 1.0
         self._ac = False
 
-    def capacity(self, widget):
+    def charge(self, widget):
         if self._ac:
             return "ac"
-        if self._capacity == -1:
+        if self._charge is None:
             return "n/a"
-        return "{:d}%".format(self._capacity)
+        return "{0:.0f}%".format(self._charge * 100)
 
     def update(self, widgets):
         widget = widgets[0]
         self._ac = False
         if not os.path.exists(self._path):
             self._ac = True
-            self._capacity = 100
+            self._charge = 1
             return
 
         try:
-            with open(self._path + "/capacity") as f:
-                self._capacity = int(f.read())
+            with open(os.path.join(self._path, 'charge_full')) as f:
+                capacity = int(f.read())
+            with open(os.path.join(self._path, 'charge_now')) as f:
+                charge = float(f.read())
+            self._charge = min(charge / capacity, 1)
         except IOError:
-            self._capacity = -1
-        self._capacity = self._capacity if self._capacity < 100 else 100
+            self._charge = None
 
     def state(self, widget):
         state = []
 
-        if self._capacity < 0:
+        if self._charge < 0.01:
             return ["critical", "unknown"]
 
-        if self._capacity < int(self.parameter("critical", 10)):
+        if self._charge < float(self.parameter("critical", 10)) / 100:
             state.append("critical")
-        elif self._capacity < int(self.parameter("warning", 20)):
+        elif self._charge < float(self.parameter("warning", 20)) / 100:
             state.append("warning")
 
         if self._ac:
@@ -64,9 +66,9 @@ class Module(bumblebee.engine.Module):
             with open(self._path + "/status") as f:
                 charge = f.read().strip()
             if charge == "Discharging":
-                state.append("discharging-{}".format(min([10, 25, 50, 80, 100] , key=lambda i:abs(i-self._capacity))))
+                state.append("discharging-{}".format(min([10, 25, 50, 80, 100] , key=lambda i:abs(i - self._charge * 100))))
             else:
-                if self._capacity > 95:
+                if self._charge > 0.95:
                     state.append("charged")
                 else:
                     state.append("charging")
