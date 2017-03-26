@@ -24,14 +24,18 @@ class Module(bumblebee.engine.Module):
         step = self.parameter("step", 2)
 
         engine.input.register_callback(self, button=bumblebee.input.WHEEL_UP,
-            cmd="xbacklight +{}%".format(step))
+            cmd="gmux_backlight +{}%".format(step))
         engine.input.register_callback(self, button=bumblebee.input.WHEEL_DOWN,
-            cmd="xbacklight -{}%".format(step))
+            cmd="gmux_backlight -{}%".format(step))
 
     def brightness(self, widget):
-        return "{:03.0f}%".format(self._brightness)
+        return "{:3.0f}%".format(self._brightness)
 
     def update(self, widgets):
-        self._brightness = float(bumblebee.util.execute("xbacklight -get"))
+        with open('/sys/class/backlight/gmux_backlight/max_brightness') as max_brightness_file:
+            max_brightness = int(max_brightness_file.read())
+        with open('/sys/class/backlight/gmux_backlight/brightness') as brightness_file:
+            current_brightness = int(brightness_file.read())
+        self._brightness = current_brightness / max_brightness * 100
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
